@@ -1,0 +1,33 @@
+# --- Node / Frontend ---
+node_modules/
+dist/
+*.local
+.vite/
+
+# --- Python / Backend ---
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+
+# --- Secrets & env ---
+.env
+.env.*
+!.env.example
+
+# --- Runtime data (database, logs, generated media) ---
+*.db
+*.db-shm
+*.db-wal
+*.sqlite3
+*.log
+backend/media/
+
+# --- Editors / OS ---
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
