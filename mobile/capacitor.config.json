@@ -1,0 +1,12 @@
+{
+  "appId": "com.ramnath.soilingguard",
+  "appName": "SoilingGuard",
+  "webDir": "../frontend/dist",
+  "server": {
+    "url": "https://soiling-guard-pv-soiling-cleaning.vercel.app",
+    "cleartext": false
+  },
+  "android": {
+    "allowMixedContent": false
+  }
+}
