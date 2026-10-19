@@ -116,8 +116,7 @@ function useLiveSocket(deviceId: string | null) {
 }
 
 function StatTiles({ points, source }: { points: TelemetryPoint[]; source: "measured" | "simulated" | "estimated" | "demo" }) {
-  const valid = points.filter((p) => p.power_w !== null);
-  const latest = valid[valid.length - 1] ?? null;
+  const latest = points.length ? points[points.length - 1] : null;
   const nums = (key: keyof TelemetryPoint) =>
     points.map((p) => p[key]).filter((v): v is number => typeof v === "number");
   const stats = (key: keyof TelemetryPoint) => {
@@ -316,6 +315,15 @@ export default function LiveMonitoringPage() {
 
   const missing = merged.filter((p) => p.power_w === null).length;
   const source = telemetry.data?.source ?? "simulated";
+  // Demo site runs on a fixed solar time (UTC+5:30, sunrise ~05:36, sunset ~18:36).
+  const atSiteNight = React.useMemo(() => {
+    if (!merged.length) return false;
+    const last = new Date(merged[merged.length - 1].ts).getTime();
+    if (Number.isNaN(last)) return false;
+    const d = new Date(last + 5.5 * 3_600_000);
+    const hour = d.getUTCHours() + d.getUTCMinutes() / 60;
+    return hour < 5.6 || hour > 18.6;
+  }, [merged]);
 
   async function onExport() {
     if (!selectedDeviceId) return;
@@ -472,7 +480,11 @@ export default function LiveMonitoringPage() {
 
       {missing > 0 && (
         <InfoBanner
-          message={`${missing} sample${missing === 1 ? "" : "s"} in this range have no recorded measurement. Gaps are shown as breaks in the curves and are never filled or interpolated.`}
+          message={`${missing} sample${missing === 1 ? "" : "s"} in this range have no recorded measurement. Gaps are shown as breaks in the curves and are never filled or interpolated.${
+            atSiteNight
+              ? " Nighttime at the site (sunset ~6:36 PM local solar time): the inverter reports no AC output until dawn, so power/voltage/current curves are legitimately empty."
+              : ""
+          }`}
         />
       )}
 
