@@ -35,12 +35,14 @@ class Settings(BaseSettings):
     seed_operator_password: str = "operator123"
     seed_viewer_username: str = "viewer"
     seed_viewer_password: str = "viewer123"
+    seed_ramnath_username: str = "Ramnath"
+    seed_ramnath_password: str = "Ramnath"
 
     # demo / simulation
     demo_mode: bool = True
     simulator_enabled: bool = True
     simulator_tick_s: float = 30.0
-    seed_history_days: int = 7
+    seed_history_days: int = 30
 
     # AI
     model_path: str = str(BASE_DIR / "models" / "soiling_mobilenetv3.pt")

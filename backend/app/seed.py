@@ -13,6 +13,8 @@ from sqlalchemy.orm import Session
 from .config import get_settings
 from .models import (
     AiPrediction,
+    Alert,
+    CleaningJob,
     Device,
     GroundTruthLabel,
     PanelImage,
@@ -54,6 +56,7 @@ def seed_users(db: Session) -> None:
         (settings.seed_admin_username, settings.seed_admin_password, "Site Administrator", "admin"),
         (settings.seed_operator_username, settings.seed_operator_password, "Control Room Operator", "operator"),
         (settings.seed_viewer_username, settings.seed_viewer_password, "Read-only Viewer", "viewer"),
+        (settings.seed_ramnath_username, settings.seed_ramnath_password, "Ramnath", "admin"),
     ]
     for username, password, full_name, role in accounts:
         existing = db.execute(select(User).where(User.username == username)).scalar_one_or_none()
@@ -165,6 +168,91 @@ def seed_demo_imagery(db: Session, device: Device) -> int:
     return created
 
 
+def seed_month_history(db: Session, device: Device) -> None:
+    """A month of demo operational history: cleaning jobs, events and alerts."""
+    if db.execute(select(func.count()).select_from(CleaningJob)).scalar_one():
+        return
+    now = datetime.now(timezone.utc)
+
+    def days_ago(d: int, hour: int, minute: int = 0) -> datetime:
+        return (now - timedelta(days=d)).replace(hour=hour, minute=minute, second=0, microsecond=0)
+
+    jobs_spec = [
+        (21, 9, 32, 301.5, 347.8, 186.0, 14.2, 214.0),
+        (12, 10, 5, 304.9, 345.1, 178.0, 13.8, 205.0),
+        (4, 9, 41, 297.6, 342.4, 191.0, 14.5, 218.0),
+    ]
+    for d, hour, minute, before, after, duration_s, water, energy in jobs_spec:
+        start = days_ago(d, hour, minute)
+        db.add(
+            CleaningJob(
+                device_id=device.id,
+                status="completed",
+                trigger="automatic",
+                initiated_by="system",
+                reason="Automatic cycle: simulated soiling loss exceeded threshold",
+                requested_at=start - timedelta(minutes=6),
+                started_at=start,
+                completed_at=start + timedelta(seconds=duration_s),
+                duration_s=duration_s,
+                water_liters=water,
+                energy_wh=energy,
+                power_before_w=before,
+                power_after_w=after,
+                delta_pct=round((after - before) / before * 100.0, 1),
+                measurement_note="Simulated before/after electrical snapshot",
+                simulated=True,
+            )
+        )
+
+    events_spec = [
+        (29, 8, "device_connected", "info", "Controller reconnected after scheduled maintenance."),
+        (26, 11, "settings_changed", "info", "Nightly report schedule updated (demo)."),
+        (22, 17, "cleaning_recommended", "warning", "Estimated soiling loss crossed 8% - cleaning recommended."),
+        (21, 9, "cleaning_started", "info", "Automatic cleaning cycle started (simulated)."),
+        (21, 9, "cleaning_completed", "success", "Automatic cleaning cycle completed (simulated)."),
+        (17, 14, "sensor_offline", "warning", "Irradiance sensor reported stale values for 12 minutes."),
+        (17, 15, "device_connected", "info", "Irradiance sensor recovered and is reporting again."),
+        (13, 16, "cleaning_recommended", "warning", "Soiling accumulation trend rising - cleaning recommended."),
+        (12, 10, "cleaning_completed", "success", "Automatic cleaning cycle completed (simulated)."),
+        (9, 12, "soiling_threshold_crossed", "warning", "Soiling loss estimate crossed the configured warning threshold."),
+        (5, 21, "login", "info", "User signed in from web dashboard."),
+        (4, 9, "cleaning_completed", "success", "Automatic cleaning cycle completed (simulated)."),
+        (1, 18, "data_exported", "info", "Telemetry export generated for the demo period."),
+    ]
+    for d, hour, etype, status, text in events_spec:
+        db.add(
+            SystemEvent(
+                ts=days_ago(d, hour),
+                event_type=etype,
+                device_id=device.id,
+                description=text,
+                status=status,
+                actor="Ramnath" if etype == "login" else "system",
+            )
+        )
+
+    alerts_spec = [
+        (22, "warning", "Soiling loss above 8%", "Estimated soiling loss reached 8.4% on Roof Array A (simulated)."),
+        (17, "warning", "Irradiance sensor stale", "Irradiance readings were stale for 12 minutes (simulated fault)."),
+        (12, "info", "Cleaning cycle completed", "Automatic cleaning completed with a +13.1% simulated power recovery."),
+        (1, "info", "Monthly demo report ready", "A 30-day simulated performance summary is available."),
+    ]
+    for d, sev, title, message in alerts_spec:
+        db.add(
+            Alert(
+                ts=days_ago(d, 18),
+                severity=sev,
+                title=title,
+                message=message,
+                category="system",
+                read=d > 1,
+                device_id=device.id,
+            )
+        )
+    db.commit()
+
+
 def seed_first_run(db: Session) -> None:
     has_events = db.execute(select(func.count()).select_from(SystemEvent)).scalar_one()
     if has_events:
@@ -188,6 +276,7 @@ def seed_first_run(db: Session) -> None:
 def seed_all(db: Session) -> dict:
     seed_users(db)
     device = seed_device(db)
+    seed_month_history(db, device)
     images = seed_demo_imagery(db, device)
     seed_first_run(db)
     return {"device": device.id, "demo_images": images}

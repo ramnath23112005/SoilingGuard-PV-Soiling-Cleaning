@@ -32,8 +32,10 @@ def clear_sky_irradiance(ts: datetime) -> float:
     hour = t.hour + t.minute / 60
     if hour < 5.6 or hour > 18.6:
         return 0.0
-    x = (hour - 5.6) / 13.0
+    x = min(1.0, max(0.0, (hour - 5.6) / 13.0))
     elevation = math.sin(math.pi * x)
+    if elevation <= 0.0:
+        return 0.0
     day_factor = 0.86 + 0.14 * math.sin(t.timetuple().tm_yday / 365.0 * 2 * math.pi)
     return max(0.0, 1050.0 * (elevation**1.15) * day_factor)
 
@@ -64,6 +66,8 @@ def soiling_loss_pct(db: Session, device_id: str, ts: datetime) -> float:
     if last_clean is None:
         # oldest possible accumulation anchor for first boot
         ref = ts - timedelta(days=6)
+    if ref.tzinfo is None:
+        ref = ref.replace(tzinfo=timezone.utc)
     hours = max(0.0, (ts - ref).total_seconds() / 3600.0)
     # ~0.5 % per day of accumulation with a mild plateau, capped at 17 %
     loss = min(17.0, 0.6 + 0.5 * (hours / 24.0))
@@ -133,7 +137,7 @@ def sample_reading(db: Session, device, ts: datetime) -> dict:
 
 def seed_history(db: Session, device, days: int | None = None) -> int:
     """Backfill simulated history: 5-minute samples for N days, 1-minute for last 24 h."""
-    days = days or settings.seed_history_days
+    days = days or max(settings.seed_history_days, 30)
     now = datetime.now(timezone.utc).replace(second=0, microsecond=0)
     rows: list[TelemetryReading] = []
 
