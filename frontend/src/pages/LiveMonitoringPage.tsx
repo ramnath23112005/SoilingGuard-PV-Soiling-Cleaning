@@ -50,6 +50,15 @@ function toIsoLocal(value: string): string | undefined {
   return Number.isNaN(d.getTime()) ? undefined : d.toISOString();
 }
 
+function wsHost(): string {
+  // Vercel cannot proxy WebSockets; connect straight to the Render backend there.
+  if (window.location.hostname.endsWith(".vercel.app")) {
+    return "wss://soilingguard-pv-soiling-cleaning.onrender.com";
+  }
+  const proto = window.location.protocol === "https:" ? "wss:" : "ws:";
+  return `${proto}//${window.location.host}`;
+}
+
 function useLiveSocket(deviceId: string | null) {
   const [state, setState] = React.useState<"connecting" | "live" | "polling">("polling");
   const [livePoint, setLivePoint] = React.useState<TelemetryPoint | null>(null);
@@ -58,33 +67,47 @@ function useLiveSocket(deviceId: string | null) {
     if (!deviceId) return;
     let socket: WebSocket | null = null;
     let closed = false;
-    try {
-      const proto = window.location.protocol === "https:" ? "wss" : "ws";
-      const token = getToken();
-      socket = new WebSocket(
-        `${proto}://${window.location.host}/ws/telemetry?device_id=${encodeURIComponent(deviceId)}${token ? `&token=${encodeURIComponent(token)}` : ""}`,
-      );
-      setState("connecting");
-      socket.onopen = () => setState("live");
-      socket.onmessage = (ev) => {
-        try {
-          const msg = JSON.parse(ev.data as string) as { type?: string; point?: TelemetryPoint };
-          if (msg.type === "telemetry" && msg.point) setLivePoint(msg.point);
-        } catch {
-          /* ignore malformed frames */
-        }
-      };
-      socket.onerror = () => {
-        if (!closed) setState("polling");
-      };
-      socket.onclose = () => {
-        if (!closed) setState("polling");
-      };
-    } catch {
-      setState("polling");
-    }
+    let attempt = 0;
+    let retryTimer: ReturnType<typeof setTimeout> | undefined;
+
+    const connect = () => {
+      try {
+        const token = getToken();
+        socket = new WebSocket(
+          `${wsHost()}/ws/telemetry?device_id=${encodeURIComponent(deviceId)}${token ? `&token=${encodeURIComponent(token)}` : ""}`,
+        );
+        setState("connecting");
+        socket.onopen = () => {
+          attempt = 0;
+          setState("live");
+        };
+        socket.onmessage = (ev) => {
+          try {
+            const msg = JSON.parse(ev.data as string) as { type?: string; point?: TelemetryPoint };
+            if (msg.type === "telemetry" && msg.point) setLivePoint(msg.point);
+          } catch {
+            /* ignore malformed frames */
+          }
+        };
+        socket.onerror = () => {
+          if (!closed) setState("polling");
+        };
+        socket.onclose = () => {
+          if (closed) return;
+          setState("polling");
+          const delay = Math.min(30_000, 2_000 * 2 ** Math.min(attempt, 4));
+          attempt += 1;
+          retryTimer = setTimeout(connect, delay);
+        };
+      } catch {
+        setState("polling");
+      }
+    };
+
+    connect();
     return () => {
       closed = true;
+      if (retryTimer) clearTimeout(retryTimer);
       socket?.close();
     };
   }, [deviceId]);

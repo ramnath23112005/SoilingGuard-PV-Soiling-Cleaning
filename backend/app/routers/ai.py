@@ -310,7 +310,7 @@ def list_predictions(
     to: str | None = Query(default=None),
     predicted_class: str | None = Query(default=None),
     page: int = Query(default=1, ge=1),
-    page_size: int = Query(default=20, ge=1, le=100),
+    page_size: int = Query(default=20, ge=1, le=1000),
     db: Session = Depends(get_db),
 ):
     q = select(AiPrediction)
