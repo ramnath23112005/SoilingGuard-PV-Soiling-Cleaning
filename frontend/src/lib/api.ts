@@ -99,6 +99,26 @@ async function parseError(res: Response): Promise<string> {
   }
 }
 
+// The backend stores/serves naive UTC timestamps; without a "Z" suffix the JS
+// Date parser would treat them as browser-local time and shift every label.
+const NAIVE_ISO = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(:\d{2}(\.\d{1,6})?)?$/;
+
+export function normalizeTimestamps<T>(value: T): T {
+  if (typeof value === "string") {
+    return (NAIVE_ISO.test(value) ? `${value}Z` : value) as T;
+  }
+  if (Array.isArray(value)) {
+    return value.map((v) => normalizeTimestamps(v)) as unknown as T;
+  }
+  if (value && typeof value === "object") {
+    for (const [k, v] of Object.entries(value as Record<string, unknown>)) {
+      (value as Record<string, unknown>)[k] = normalizeTimestamps(v);
+    }
+    return value;
+  }
+  return value;
+}
+
 async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
   const headers = new Headers(init.headers);
   const token = getToken();
@@ -122,7 +142,7 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
   if (res.status === 204) return undefined as T;
   const text = await res.text();
   if (!text) return undefined as T;
-  return JSON.parse(text) as T;
+  return normalizeTimestamps(JSON.parse(text) as T);
 }
 
 export interface RequestOptions {

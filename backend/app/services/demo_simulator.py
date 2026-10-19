@@ -21,9 +21,13 @@ from ..models import CleaningJob, TelemetryReading
 
 settings = get_settings()
 
+# The demo site is fixed at ~23°N (India): drive the day/night cycle from the
+# site's timezone so charts look the same no matter where the server runs.
+SITE_TZ = timezone(timedelta(hours=5, minutes=30))
+
 
 def _local_naive(dt: datetime) -> datetime:
-    return dt.astimezone().replace(tzinfo=None)
+    return dt.astimezone(SITE_TZ).replace(tzinfo=None)
 
 
 def clear_sky_irradiance(ts: datetime) -> float:

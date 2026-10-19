@@ -7,7 +7,7 @@ import {
   RefreshCw,
   Thermometer,
 } from "lucide-react";
-import { api, getToken } from "@/lib/api";
+import { api, getToken, normalizeTimestamps } from "@/lib/api";
 import { RANGE_OPTIONS, RANGE_POLL_MS, useAsync, type RangeKey } from "@/lib/hooks";
 import { useSystem } from "@/context/SystemContext";
 import { cn, formatDateTime, formatNumber, formatTime } from "@/lib/utils";
@@ -84,7 +84,7 @@ function useLiveSocket(deviceId: string | null) {
         socket.onmessage = (ev) => {
           try {
             const msg = JSON.parse(ev.data as string) as { type?: string; point?: TelemetryPoint };
-            if (msg.type === "telemetry" && msg.point) setLivePoint(msg.point);
+            if (msg.type === "telemetry" && msg.point) setLivePoint(normalizeTimestamps(msg.point));
           } catch {
             /* ignore malformed frames */
           }
