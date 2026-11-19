@@ -1,9 +1,0 @@
-src/api.ts(1,30): error TS2339: Property 'env' does not exist on type 'ImportMeta'.
-src/main.tsx(7,8): error TS2307: Cannot find module './styles.css' or its corresponding type declarations.
-src/pages/Dashboard.tsx(1,1): error TS6133: 'React' is declared but its value is never read.
-src/pages/Programs.tsx(4,35): error TS6196: 'ProgramExerciseRef' is declared but never used.
-src/pages/Programs.tsx(6,7): error TS6133: 'MUSCLES' is declared but its value is never read.
-src/pages/Programs.tsx(7,7): error TS6133: 'EQUIPMENT' is declared but its value is never read.
-src/pages/Programs.tsx(9,7): error TS6133: 'CATEGORIES' is declared but its value is never read.
-src/pages/Programs.tsx(93,9): error TS6133: 'exerciseMap' is declared but its value is never read.
-vite.config.ts(10,17): error TS2580: Cannot find name 'process'. Do you need to install type definitions for node? Try `npm i --save-dev @types/node`.
