@@ -39,8 +39,19 @@ mobile/*.apk
 mobile/android/.gradle/
 mobile/android/build/
 mobile/android/app/build/
-mobile/android/capacitor-cordova-android-plugins/build/
+mobile/capacitor-cordova-android-plugins/build/
 mobile/android/local.properties
 mobile/android/app/src/main/assets/public/
 mobile/android/app/src/main/assets/capacitor.plugins.json
 *.iml
+
+# --- Unrelated sibling projects (not part of SoilingGuard) ---
+Bag/
+Clothing/
+Food/
+Portfolio/
+VYRO NEW/
+Vyro Phone/
+vcpkg/
+backend/package-lock.json
+
