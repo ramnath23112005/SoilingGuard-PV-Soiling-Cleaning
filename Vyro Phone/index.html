@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>VYRO — Fashion Store</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Playfair+Display:wght@500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <link rel="stylesheet" href="/src/shared.css">
+</head>
+<body>
+  <header id="app-header">
+    <button id="back-btn" class="icon-btn" aria-label="Back" hidden>
+      <i class="fa-solid fa-arrow-left"></i>
+    </button>
+    <a href="#/home" class="logo">VYRO</a>
+    <div class="header-actions">
+      <button class="icon-btn" data-nav="search" aria-label="Search">
+        <i class="fa-solid fa-magnifying-glass"></i>
+      </button>
+      <button class="icon-btn" data-nav="wishlist" aria-label="Wishlist">
+        <i class="fa-regular fa-heart"></i>
+        <span class="badge-count" id="wish-badge" hidden></span>
+      </button>
+      <button class="icon-btn" data-nav="cart" aria-label="Cart">
+        <i class="fa-solid fa-bag-shopping"></i>
+        <span class="badge-count" id="cart-badge" hidden></span>
+      </button>
+      <button class="icon-btn avatar-btn" data-nav="profile" aria-label="Profile">
+        <i class="fa-regular fa-user"></i>
+      </button>
+    </div>
+  </header>
+
+  <main id="content"></main>
+
+  <nav id="bottom-nav">
+    <a href="#/home" data-nav="home"><i class="fa-solid fa-house"></i><span>Home</span></a>
+    <a href="#/shop" data-nav="shop"><i class="fa-solid fa-store"></i><span>Shop</span></a>
+    <a href="#/wishlist" data-nav="wishlist"><i class="fa-regular fa-heart"></i><span>Wishlist</span></a>
+    <a href="#/cart" data-nav="cart"><i class="fa-solid fa-bag-shopping"></i><span>Cart</span></a>
+    <a href="#/profile" data-nav="profile"><i class="fa-regular fa-user"></i><span>Profile</span></a>
+  </nav>
+
+  <div id="toast" role="status"></div>
+
+  <script type="module" src="/src/main.js"></script>
+</body>
+</html>

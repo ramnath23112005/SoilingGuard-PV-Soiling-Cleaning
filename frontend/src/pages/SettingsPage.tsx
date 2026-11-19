@@ -1,6 +1,7 @@
-﻿import * as React from "react";
+import * as React from "react";
 import {
   Camera,
+  CheckCircle2,
   Cpu,
   Loader2,
   LogOut,
@@ -8,7 +9,11 @@ import {
   ShieldCheck,
   SlidersHorizontal,
   UserRound,
+  Wifi,
+  WifiOff,
   Wrench,
+  XCircle,
+  Zap,
 } from "lucide-react";
 import { api } from "@/lib/api";
 import { useAsync } from "@/lib/hooks";
@@ -129,6 +134,8 @@ export default function SettingsPage() {
   const loaded = useAsync((signal) => api.settings({ signal }), []);
   const cfg = loaded.data?.settings;
   const isAdmin = hasRole("admin");
+  const [esp32PingState, setEsp32PingState] = React.useState<"idle" | "pinging" | "ok" | "error">("idle");
+  const [esp32PingMsg, setEsp32PingMsg] = React.useState<string | null>(null);
 
   const value = <K extends keyof AppSettings>(key: K): string | number | boolean | null => {
     const d = draft[key];
@@ -181,6 +188,9 @@ export default function SettingsPage() {
       setServerWarnings(res.warnings);
       setDraft({});
       loaded.reload();
+      // reset esp32 ping state so user re-tests after saving new URL
+      setEsp32PingState("idle");
+      setEsp32PingMsg(null);
       toast({
         title: "Settings saved",
         description: res.warnings.length > 0 ? `${res.warnings.length} safety warning(s) apply.` : "Configuration updated.",
@@ -199,6 +209,19 @@ export default function SettingsPage() {
       toast({ title: "Save failed", description: msg, variant: "error" });
     } finally {
       setSaving(false);
+    }
+  }
+
+  async function pingEsp32() {
+    setEsp32PingState("pinging");
+    setEsp32PingMsg(null);
+    try {
+      const res = await api.pingEsp32();
+      setEsp32PingState(res.ok ? "ok" : "error");
+      setEsp32PingMsg(res.detail);
+    } catch (e) {
+      setEsp32PingState("error");
+      setEsp32PingMsg(e instanceof Error ? e.message : "Ping failed");
     }
   }
 
@@ -413,6 +436,116 @@ export default function SettingsPage() {
             value={selectedDevice?.simulated ? "Simulated INA219" : "INA219 (I²C)"}
           />
           <ReadOnlyRow label="Cleaning actuator" value="12 V DC motor wiper" />
+        </Section>
+
+        {/* ---- ESP32 Hardware Connection ---- */}
+        <Section
+          icon={<Wifi className="h-4 w-4" />}
+          title="ESP32 hardware connection"
+          description="Direct link to your ESP32 controller — required when demo mode is off"
+        >
+          {/* Real-time data notice when demo_mode is off */}
+          {!Boolean(value("demo_mode")) && (
+            <div className="flex items-start gap-2.5 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2.5">
+              <Zap className="mt-0.5 h-4 w-4 shrink-0 text-emerald-600" />
+              <div>
+                <p className="text-xs font-medium text-emerald-800">Live ESP32 data active</p>
+                <p className="mt-0.5 text-[11px] leading-relaxed text-emerald-700">
+                  Demo mode is <strong>off</strong>. The dashboard reads real measurements posted by the ESP32
+                  firmware to <code className="rounded bg-emerald-100 px-1 font-mono">/api/telemetry</code>. Configure
+                  the ESP32 IP below so the backend can also reach the device for status checks and cleaning commands.
+                </p>
+              </div>
+            </div>
+          )}
+
+          {/* ESP32 URL input */}
+          <div className="grid gap-1.5 sm:grid-cols-[1fr_auto] sm:items-end">
+            <div>
+              <Label htmlFor="esp32_url" className="text-xs">ESP32 base URL</Label>
+              <p className="mt-0.5 text-[11px] leading-snug text-slate-500">
+                Base address of the ESP32 web server, e.g.{" "}
+                <code className="font-mono">http://192.168.1.50</code>. The firmware must be running and reachable on
+                the same network as the backend.
+              </p>
+              <div className="mt-1.5 flex items-center gap-2">
+                <Input
+                  id="esp32_url"
+                  type="url"
+                  value={String(value("esp32_url") ?? "")}
+                  placeholder="http://192.168.1.50"
+                  disabled={!isAdmin}
+                  className="h-9 font-mono text-xs"
+                  spellCheck={false}
+                  onChange={(e) => set("esp32_url", e.target.value)}
+                />
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="h-9 shrink-0"
+                  disabled={esp32PingState === "pinging" || !String(value("esp32_url") ?? "").trim()}
+                  onClick={() => void pingEsp32()}
+                  title="Ping the ESP32 to check reachability"
+                >
+                  {esp32PingState === "pinging" ? (
+                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                  ) : esp32PingState === "ok" ? (
+                    <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600" />
+                  ) : esp32PingState === "error" ? (
+                    <XCircle className="h-3.5 w-3.5 text-red-500" />
+                  ) : (
+                    <Wifi className="h-3.5 w-3.5" />
+                  )}
+                  {esp32PingState === "pinging" ? "Testing…" : "Test connection"}
+                </Button>
+              </div>
+              {esp32PingMsg && (
+                <div
+                  className={`mt-2 rounded-lg border px-3 py-2 text-[11px] leading-relaxed ${
+                    esp32PingState === "ok"
+                      ? "border-emerald-200 bg-emerald-50 text-emerald-800"
+                      : "border-amber-200 bg-amber-50 text-amber-900"
+                  }`}
+                  role="status"
+                >
+                  {esp32PingState === "ok" ? (
+                    <span className="inline-flex items-center gap-1">
+                      <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600" /> {esp32PingMsg}
+                    </span>
+                  ) : (
+                    <span className="inline-flex items-center gap-1">
+                      <WifiOff className="h-3.5 w-3.5 text-red-500" /> {esp32PingMsg}
+                    </span>
+                  )}
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Device key */}
+          <div className="grid gap-1.5">
+            <Label htmlFor="esp32_device_key" className="text-xs">Device API key (X-Device-Key)</Label>
+            <p className="text-[11px] leading-snug text-slate-500">
+              Shared secret between the backend and the ESP32 firmware. Must match{" "}
+              <code className="font-mono">DEVICE_API_KEY</code> in the Arduino sketch.
+            </p>
+            <Input
+              id="esp32_device_key"
+              type="text"
+              value={String(value("esp32_device_key") ?? "")}
+              placeholder="soilingguard-esp32-key"
+              disabled={!isAdmin}
+              className="h-9 font-mono text-xs"
+              spellCheck={false}
+              onChange={(e) => set("esp32_device_key", e.target.value)}
+            />
+          </div>
+
+          <p className="text-[11px] leading-relaxed text-slate-400">
+            The ESP32 firmware <strong>pushes</strong> telemetry to the backend at{" "}
+            <code className="font-mono">/api/telemetry</code> — no polling is needed. This URL is used by the backend
+            to reach the device for status checks and cleaning commands.
+          </p>
         </Section>
       </div>
 

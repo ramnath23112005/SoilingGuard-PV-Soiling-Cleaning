@@ -447,6 +447,8 @@ class SettingsOut(BaseModel):
     mqtt_port: int
     mqtt_topic_prefix: str
     demo_mode: bool
+    esp32_url: str
+    esp32_device_key: str
     updated_at: datetime | None = None
     updated_by: str | None = None
 
@@ -478,6 +480,8 @@ class SettingsUpdate(BaseModel):
     mqtt_port: int | None = Field(default=None, ge=1, le=65_535)
     mqtt_topic_prefix: str | None = Field(default=None, max_length=64)
     demo_mode: bool | None = None
+    esp32_url: str | None = Field(default=None, max_length=200)
+    esp32_device_key: str | None = Field(default=None, max_length=128)
 
 
 class SettingsResponse(BaseModel):

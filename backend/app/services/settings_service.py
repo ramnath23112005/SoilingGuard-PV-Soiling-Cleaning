@@ -31,6 +31,8 @@ DEFAULTS: dict = {
     "mqtt_port": 1883,
     "mqtt_topic_prefix": "soilingguard",
     "demo_mode": True,
+    "esp32_url": "",                        # e.g. http://192.168.1.50 — set when demo_mode=False
+    "esp32_device_key": "soilingguard-esp32-key",
 }
 
 

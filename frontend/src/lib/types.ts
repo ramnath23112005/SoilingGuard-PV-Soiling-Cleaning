@@ -380,6 +380,8 @@ export interface AppSettings {
   mqtt_port: number;
   mqtt_topic_prefix: string;
   demo_mode: boolean;
+  esp32_url: string;
+  esp32_device_key: string;
   updated_at: string;
   updated_by: string;
 }

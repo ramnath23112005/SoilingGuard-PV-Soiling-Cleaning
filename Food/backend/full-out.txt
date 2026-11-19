@@ -1,0 +1,133 @@
+PASS src/tests/api.test.ts (37.574 s)
+  ● Console
+
+    console.log
+      [db] connected: fittrack_test
+
+      at connectDB (src/config/db.ts:11:11)
+
+    console.log
+      {"ts":"2026-10-30T16:55:04.724Z","level":"info","msg":"user registered","meta":{"userId":"6ae4cbe896121c680ab4e348"}}
+
+      at write (src/utils/logger.ts:16:16)
+
+    console.log
+      {"ts":"2026-10-30T16:55:05.420Z","level":"info","msg":"user registered","meta":{"userId":"6ae4cbe996121c680ab4e388"}}
+
+      at write (src/utils/logger.ts:16:16)
+
+    console.log
+      {"ts":"2026-10-30T16:55:05.604Z","level":"info","msg":"user registered","meta":{"userId":"6ae4cbe996121c680ab4e39e"}}
+
+      at write (src/utils/logger.ts:16:16)
+
+    console.log
+      {"ts":"2026-10-30T16:55:05.977Z","level":"info","msg":"user registered","meta":{"userId":"6ae4cbe996121c680ab4e3b8"}}
+
+      at write (src/utils/logger.ts:16:16)
+
+    console.log
+      {"ts":"2026-10-30T16:55:06.253Z","level":"info","msg":"user registered","meta":{"userId":"6ae4cbea96121c680ab4e3d4"}}
+
+      at write (src/utils/logger.ts:16:16)
+
+    console.log
+      {"ts":"2026-10-30T16:55:06.377Z","level":"info","msg":"workout started","meta":{"userId":"6ae4cbea96121c680ab4e3d4","sessionId":"6ae4cbea96121c680ab4e3df"}}
+
+      at write (src/utils/logger.ts:16:16)
+
+    console.log
+      {"ts":"2026-10-30T16:55:06.895Z","level":"info","msg":"workout completed","meta":{"userId":"6ae4cbea96121c680ab4e3d4","sessionId":"6ae4cbea96121c680ab4e3df","sets":4,"volume":2200}}
+
+      at write (src/utils/logger.ts:16:16)
+
+    console.log
+      {"ts":"2026-10-30T16:55:07.052Z","level":"info","msg":"user registered","meta":{"userId":"6ae4cbeb96121c680ab4e404"}}
+
+      at write (src/utils/logger.ts:16:16)
+
+    console.log
+      {"ts":"2026-10-30T16:55:07.170Z","level":"info","msg":"user registered","meta":{"userId":"6ae4cbeb96121c680ab4e418"}}
+
+      at write (src/utils/logger.ts:16:16)
+
+    console.log
+      {"ts":"2026-10-30T16:55:07.238Z","level":"info","msg":"workout started","meta":{"userId":"6ae4cbeb96121c680ab4e418","sessionId":"6ae4cbeb96121c680ab4e423"}}
+
+      at write (src/utils/logger.ts:16:16)
+
+    console.log
+      {"ts":"2026-10-30T16:55:07.387Z","level":"info","msg":"user registered","meta":{"userId":"6ae4cbeb96121c680ab4e435"}}
+
+      at write (src/utils/logger.ts:16:16)
+
+    console.log
+      {"ts":"2026-10-30T16:55:07.633Z","level":"info","msg":"user registered","meta":{"userId":"6ae4cbeb96121c680ab4e452"}}
+
+      at write (src/utils/logger.ts:16:16)
+
+    console.log
+      {"ts":"2026-10-30T16:55:08.037Z","level":"info","msg":"user registered","meta":{"userId":"6ae4cbeb96121c680ab4e46b"}}
+
+      at write (src/utils/logger.ts:16:16)
+
+    console.log
+      {"ts":"2026-10-30T16:55:08.238Z","level":"info","msg":"user registered","meta":{"userId":"6ae4cbec96121c680ab4e482"}}
+
+      at write (src/utils/logger.ts:16:16)
+
+PASS src/tests/auth.test.ts (8.143 s)
+  ● Console
+
+    console.log
+      [db] connected: fittrack_test
+
+      at connectDB (src/config/db.ts:11:11)
+
+    console.log
+      {"ts":"2026-10-30T16:55:12.295Z","level":"info","msg":"user registered","meta":{"userId":"6ae4cbf08d26fcf756ff4a4c"}}
+
+      at write (src/utils/logger.ts:16:16)
+
+    console.log
+      {"ts":"2026-10-30T16:55:12.457Z","level":"info","msg":"user registered","meta":{"userId":"6ae4cbf08d26fcf756ff4a60"}}
+
+      at write (src/utils/logger.ts:16:16)
+
+    console.log
+      {"ts":"2026-10-30T16:55:12.780Z","level":"info","msg":"user registered","meta":{"userId":"6ae4cbf08d26fcf756ff4a80"}}
+
+      at write (src/utils/logger.ts:16:16)
+
+    console.log
+      {"ts":"2026-10-30T16:55:12.942Z","level":"info","msg":"user registered","meta":{"userId":"6ae4cbf08d26fcf756ff4a98"}}
+
+      at write (src/utils/logger.ts:16:16)
+
+    console.log
+      {"ts":"2026-10-30T16:55:13.178Z","level":"info","msg":"user registered","meta":{"userId":"6ae4cbf18d26fcf756ff4ab5"}}
+
+      at write (src/utils/logger.ts:16:16)
+
+    console.log
+      {"ts":"2026-10-30T16:55:13.223Z","level":"info","msg":"password reset requested","meta":{"userId":"6ae4cbf18d26fcf756ff4ab5"}}
+
+      at write (src/utils/logger.ts:16:16)
+
+    console.log
+      {"ts":"2026-10-30T16:55:14.308Z","level":"info","msg":"password reset completed","meta":{"userId":"6ae4cbf18d26fcf756ff4ab5"}}
+
+      at write (src/utils/logger.ts:16:16)
+
+    console.log
+      {"ts":"2026-10-30T16:55:16.603Z","level":"info","msg":"user registered","meta":{"userId":"6ae4cbf48d26fcf756ff4aec"}}
+
+      at write (src/utils/logger.ts:16:16)
+
+
+Test Suites: 2 passed, 2 total
+Tests:       21 passed, 21 total
+Snapshots:   0 total
+Time:        46.36 s
+Ran all test suites.
+Force exiting Jest: Have you considered using `--detectOpenHandles` to detect async operations that kept running after all tests finished?

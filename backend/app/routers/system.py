@@ -49,3 +49,54 @@ def overview(_: CurrentUser, device_id: str | None = Query(default=None), db: Se
         return OverviewResponse(**build_overview(db, resolved))
     except ValueError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from None
+
+
+@router.post("/system/ping-esp32")
+def ping_esp32(
+    _: CurrentUser,
+    db: Session = Depends(get_db),
+):
+    """Test reachability of the configured ESP32 URL.
+
+    POSTs to <esp32_url>/api/device/status with the configured device key
+    so the firmware's authentication layer also runs. Returns latency_ms on
+    success or a descriptive error on failure.
+    """
+    import time
+
+    try:
+        import httpx
+    except ImportError:
+        raise HTTPException(status_code=500, detail="httpx is not installed; cannot reach the ESP32.")
+
+    cfg = load_settings(db)
+    base = (cfg.get("esp32_url") or "").rstrip("/")
+    key = cfg.get("esp32_device_key") or settings.iot_device_key
+
+    if not base:
+        raise HTTPException(status_code=422, detail="esp32_url is not configured. Set it in Settings first.")
+    if not (base.startswith("http://") or base.startswith("https://")):
+        raise HTTPException(status_code=422, detail="esp32_url must start with http:// or https://.")
+
+    target = f"{base}/api/device/status"
+    t0 = time.monotonic()
+    try:
+        with httpx.Client(timeout=6.0) as client:
+            res = client.post(
+                target,
+                json={"online": True},
+                headers={"X-Device-Key": key},
+            )
+        latency_ms = round((time.monotonic() - t0) * 1000, 1)
+        if res.status_code == 401:
+            return {"ok": False, "detail": f"ESP32 reachable but rejected the device key (HTTP 401). Latency: {latency_ms} ms."}
+        if not res.is_success:
+            return {"ok": False, "detail": f"ESP32 answered HTTP {res.status_code}. Latency: {latency_ms} ms."}
+        return {"ok": True, "detail": f"ESP32 is online and authenticated. Latency: {latency_ms} ms.", "latency_ms": latency_ms}
+    except httpx.ConnectError:
+        return {"ok": False, "detail": f"Cannot connect to {target}. Check the IP address and that the ESP32 is on the same network."}
+    except httpx.TimeoutException:
+        return {"ok": False, "detail": f"Connection to {target} timed out after 6 s. The ESP32 may be offline or unreachable."}
+    except Exception as exc:
+        return {"ok": False, "detail": f"Unexpected error: {type(exc).__name__}: {exc}"}
+

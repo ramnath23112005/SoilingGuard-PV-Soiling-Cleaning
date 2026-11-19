@@ -1,6 +1,7 @@
 ﻿import * as React from "react";
 import {
   AlertTriangle,
+  ArrowRight,
   BrainCircuit,
   Camera,
   CheckCircle2,
@@ -29,6 +30,7 @@ import { Label } from "@/components/ui/label";
 import { Progress } from "@/components/ui/progress";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import {
   AlertDialog,
   AlertDialogButtons,
@@ -193,9 +195,11 @@ function ResultCard({ data, onConfirm }: { data: PredictResponse; onConfirm: (cl
 function HistoryList({
   onOpen,
   refreshKey,
+  embedded = false,
 }: {
   onOpen: (p: Prediction) => void;
   refreshKey: number;
+  embedded?: boolean;
 }) {
   const { hasRole } = useAuth();
   const { toast } = useToast();
@@ -253,14 +257,22 @@ function HistoryList({
   }
 
   return (
-    <Card>
-      <CardHeader className="flex-row flex-wrap items-end justify-between gap-3 space-y-0">
-        <div>
-          <CardTitle className="flex items-center gap-2">
-            <History className="h-4 w-4 text-solar-600" /> Prediction history
-          </CardTitle>
-          <CardDescription>Stored images, classifications, model versions and expert confirmations</CardDescription>
-        </div>
+    <Card className={embedded ? "shadow-none" : undefined}>
+      <CardHeader
+        className={
+          embedded
+            ? "flex-row flex-wrap items-end justify-end gap-3 space-y-0 px-0 pb-3 pt-0"
+            : "flex-row flex-wrap items-end justify-between gap-3 space-y-0"
+        }
+      >
+        {!embedded && (
+          <div>
+            <CardTitle className="flex items-center gap-2">
+              <History className="h-4 w-4 text-solar-600" /> Prediction history
+            </CardTitle>
+            <CardDescription>Stored images, classifications, model versions and expert confirmations</CardDescription>
+          </div>
+        )}
         <div className="flex flex-wrap items-end gap-2">
           <div className="w-40">
             <Label className="text-[10px]">Class filter</Label>
@@ -288,7 +300,7 @@ function HistoryList({
           </div>
         </div>
       </CardHeader>
-      <CardContent>
+      <CardContent className={embedded ? "px-0 pt-0" : undefined}>
         {list.loading && !list.data ? (
           <div className="space-y-2">
             {Array.from({ length: 4 }).map((_, i) => (
@@ -715,6 +727,7 @@ export default function DetectionPage() {
   const [busy, setBusy] = React.useState<"real" | "demo" | null>(null);
   const [result, setResult] = React.useState<PredictResponse | null>(null);
   const [historyKey, setHistoryKey] = React.useState(0);
+  const [historyOpen, setHistoryOpen] = React.useState(false);
 
   const model = useAsync((signal) => api.modelInfo({ signal }), []);
   const modelAvailable = model.data?.available ?? false;
@@ -925,7 +938,31 @@ export default function DetectionPage() {
         </CardContent>
       </Card>
 
-      <HistoryList onOpen={(p) => void loadFromHistory(p)} refreshKey={historyKey} />
+      <div className="w-full min-w-[320px]">
+        <button
+          type="button"
+          onClick={() => setHistoryOpen(true)}
+          className="group flex w-full items-center justify-center gap-2.5 rounded-xl bg-gradient-to-r from-slate-800 to-slate-900 px-5 py-3 text-sm font-bold text-white shadow-lg shadow-slate-900/25 transition-all hover:-translate-y-0.5 hover:from-slate-700 hover:to-slate-800 hover:shadow-xl hover:shadow-slate-900/30 focus:outline-none focus:ring-2 focus:ring-slate-500 focus:ring-offset-2"
+        >
+          <History className="h-4 w-4 text-slate-400 transition-colors group-hover:text-white" />
+          <span>View Prediction History</span>
+          <ArrowRight className="h-4 w-4 text-slate-400 transition-all group-hover:translate-x-1 group-hover:text-white" />
+        </button>
+      </div>
+
+      <Dialog open={historyOpen} onOpenChange={setHistoryOpen}>
+        <DialogContent className="max-h-[85vh] max-w-5xl overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <History className="h-4 w-4 text-solar-600" /> Prediction history
+            </DialogTitle>
+            <DialogDescription>
+              Stored images, classifications, model versions and expert confirmations
+            </DialogDescription>
+          </DialogHeader>
+          <HistoryList embedded onOpen={(p) => { setHistoryOpen(false); void loadFromHistory(p); }} refreshKey={historyKey} />
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
