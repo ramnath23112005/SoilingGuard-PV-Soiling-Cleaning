@@ -10,7 +10,7 @@ import { Badge } from "@/components/ui/badge";
 const HIGHLIGHTS = [
   "Computer-vision soiling classification with transparent confidence",
   "Electrical + visual sensor fusion with evidence-backed decisions",
-  "Condition-based cleaning controls with interlocks and audit logs",
+  "Condition-based cleaning controls with interlocks and activity history",
   "Fully usable demo mode when no hardware is attached",
 ];
 
