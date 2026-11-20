@@ -134,8 +134,8 @@ function StatTiles({ points, source }: { points: TelemetryPoint[]; source: "meas
   const hasLight = nums("light_level").length > 0;
 
   const tiles = [
-    { label: "Power now", value: latest?.power_w, unit: "W", s: power, digits: 0, color: SERIES.power },
-    { label: "Voltage now", value: latest?.voltage_v, unit: "V", s: voltage, digits: 1, color: SERIES.voltage },
+    { label: "Power now", value: latest?.power_w, unit: "W", s: power, digits: 2, color: SERIES.power },
+    { label: "Voltage now", value: latest?.voltage_v, unit: "V", s: voltage, digits: 2, color: SERIES.voltage },
     { label: "Current now", value: latest?.current_a, unit: "A", s: current, digits: 2, color: SERIES.current },
     hasIrradiance || !hasLight
       ? {
@@ -204,6 +204,104 @@ function StatTiles({ points, source }: { points: TelemetryPoint[]; source: "meas
         </div>
       ))}
     </div>
+  );
+}
+
+function LiveSensorCard({
+  point,
+  source,
+  wsState,
+}: {
+  point: TelemetryPoint | null;
+  source: "measured" | "simulated" | "estimated" | "demo";
+  wsState: string;
+}) {
+  const light = point?.light_level ?? point?.irradiance_wm2 ?? null;
+  const lightUnit = point?.light_level != null ? "%" : "W/m²";
+  type LiveItem = {
+    label: string;
+    value: number | null | undefined;
+    unit: string;
+    digits: number;
+    hint?: string;
+  };
+  const items: LiveItem[] = [
+    { label: "Voltage", value: point?.voltage_v, unit: "V", digits: 2 },
+    {
+      label: "Current",
+      value: point?.current_a != null ? point.current_a * 1000 : null,
+      unit: "mA",
+      digits: 1,
+    },
+    { label: "Power", value: point?.power_w, unit: "W", digits: 2 },
+    { label: "Panel temp", value: point?.panel_temp_c, unit: "°C", digits: 1 },
+    { label: "Ambient temp", value: point?.ambient_temp_c, unit: "°C", digits: 1 },
+    { label: "Humidity", value: point?.humidity_pct, unit: "%", digits: 1 },
+    {
+      label: "LDR / light",
+      value: light,
+      unit: lightUnit,
+      digits: 0,
+      hint:
+        point?.light_level != null
+          ? `ADC ${Math.round((point.light_level / 100) * 4095)}`
+          : undefined,
+    },
+  ];
+  const live = wsState === "live";
+
+  return (
+    <Card>
+      <CardHeader className="flex-row items-start justify-between space-y-0">
+        <div>
+          <CardTitle className="flex items-center gap-2">
+            <Activity className="h-4 w-4 text-solar-600" /> Live sensor readings
+          </CardTitle>
+          <CardDescription>Direct from the ESP32 · refreshed every second</CardDescription>
+        </div>
+        <div className="flex flex-wrap items-center justify-end gap-2">
+          <SourceBadge source={source} />
+          <span
+            className={cn(
+              "inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-[0.08em]",
+              live ? "bg-emerald-50 text-emerald-700" : "bg-slate-100 text-slate-600",
+            )}
+          >
+            <span
+              className={cn(
+                "h-1.5 w-1.5 rounded-full",
+                live ? "animate-pulse bg-emerald-500" : "bg-slate-400",
+              )}
+            />
+            {live ? "Live" : wsState === "connecting" ? "Connecting" : "Polling"}
+          </span>
+          <span className="text-[10px] text-slate-400">
+            {point ? formatTime(point.ts) : "no data"}
+          </span>
+        </div>
+      </CardHeader>
+      <CardContent>
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-7">
+          {items.map((it) => (
+            <div
+              key={it.label}
+              className="rounded-lg border border-slate-200/80 bg-slate-50/60 px-3 py-2.5"
+            >
+              <p className="text-[9px] font-semibold uppercase tracking-[0.1em] text-slate-500">
+                {it.label}
+              </p>
+              <p className="mt-1 flex items-baseline gap-1">
+                <span className="text-lg font-bold tabular-nums text-slate-900">
+                  {it.value != null ? formatNumber(it.value, it.digits) : "—"}
+                </span>
+                <span className="text-[11px] font-semibold text-slate-500">{it.unit}</span>
+              </p>
+              {it.hint && <p className="mt-0.5 text-[9px] font-medium text-slate-400">{it.hint}</p>}
+            </div>
+          ))}
+        </div>
+      </CardContent>
+    </Card>
   );
 }
 
@@ -450,6 +548,12 @@ export default function LiveMonitoringPage() {
           </div>
         </CardContent>
       </Card>
+
+      <LiveSensorCard
+        point={merged.length ? merged[merged.length - 1] : null}
+        source={source}
+        wsState={wsState}
+      />
 
       {telemetry.error && !telemetry.data && (
         <ErrorState message={telemetry.error} onRetry={telemetry.reload} />
