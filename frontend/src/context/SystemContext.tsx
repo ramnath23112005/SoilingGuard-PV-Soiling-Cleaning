@@ -42,7 +42,9 @@ export function SystemProvider({ children }: { children: React.ReactNode }) {
       setStatus(s);
       setStatusError(null);
       setSelectedDeviceId((prev) => {
-        const next = prev && s.primary_device_id ? prev : s.primary_device_id;
+        // Follow the backend's primary device: it switches to the real ESP32
+        // as soon as demo mode is off, and back to the demo device when on.
+        const next = s.primary_device_id ?? prev;
         if (next && next !== prev) localStorage.setItem(DEVICE_KEY, next);
         return next ?? prev;
       });
@@ -58,7 +60,7 @@ export function SystemProvider({ children }: { children: React.ReactNode }) {
       setDevicesError(null);
       setSelectedDeviceId((prev) => {
         const stored = localStorage.getItem(DEVICE_KEY);
-        const valid = list.find((d) => d.id === (stored ?? prev));
+        const valid = list.find((d) => d.id === (prev ?? stored));
         const next = valid?.id ?? list[0]?.id ?? null;
         if (next) localStorage.setItem(DEVICE_KEY, next);
         return next;
