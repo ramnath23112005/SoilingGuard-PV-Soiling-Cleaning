@@ -61,6 +61,16 @@ def _num(value: Any) -> float | None:
         return None
 
 
+def normalize_base(raw: Any) -> str:
+    """Accept a bare IP/host (``192.168.1.50``) or a full URL."""
+    value = str(raw or "").strip().rstrip("/")
+    if not value:
+        return ""
+    if not value.startswith(("http://", "https://")):
+        value = "http://" + value
+    return value
+
+
 def _normalize(payload: dict[str, Any], default_device: str) -> dict[str, Any]:
     """Map either firmware API onto the canonical telemetry shape."""
     sensors = payload.get("sensors") if isinstance(payload.get("sensors"), dict) else {}
@@ -183,7 +193,7 @@ class Esp32Link:
         db = self._session_factory()
         try:
             cfg = load_settings(db)
-            base = str(cfg.get("esp32_url") or "").strip().rstrip("/")
+            base = normalize_base(cfg.get("esp32_url"))
 
             if bool(cfg.get("demo_mode", True)):
                 self._set(

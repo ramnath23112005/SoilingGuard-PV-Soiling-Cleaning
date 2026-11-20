@@ -13,6 +13,7 @@ from ..schemas import HealthResponse, OverviewResponse, SystemStatus
 from ..security import CurrentUser
 from ..services.inference import classifier
 from ..services.mqtt_adapter import mqtt_adapter
+from ..services.esp32_link import normalize_base
 from ..services.settings_service import load_settings
 from ..services.system_service import build_overview, build_system_status, resolve_device_id
 
@@ -70,13 +71,11 @@ def ping_esp32(
         raise HTTPException(status_code=500, detail="httpx is not installed; cannot reach the ESP32.")
 
     cfg = load_settings(db)
-    base = (cfg.get("esp32_url") or "").strip().rstrip("/")
+    base = normalize_base(cfg.get("esp32_url"))
     key = cfg.get("esp32_device_key") or settings.iot_device_key
 
     if not base:
-        raise HTTPException(status_code=422, detail="esp32_url is not configured. Set it in Settings first.")
-    if not (base.startswith("http://") or base.startswith("https://")):
-        raise HTTPException(status_code=422, detail="esp32_url must start with http:// or https://.")
+        raise HTTPException(status_code=422, detail="esp32_url is not configured. Set the ESP32 IP in Settings first.")
 
     headers = {"X-Device-Key": key}
     t0 = time.monotonic()

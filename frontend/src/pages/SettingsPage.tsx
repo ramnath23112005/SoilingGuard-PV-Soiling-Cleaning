@@ -465,21 +465,21 @@ export default function SettingsPage() {
           {/* ESP32 URL input */}
           <div className="grid gap-1.5 sm:grid-cols-[1fr_auto] sm:items-end">
             <div>
-              <Label htmlFor="esp32_url" className="text-xs">ESP32 base URL</Label>
+              <Label htmlFor="esp32_url" className="text-xs">ESP32 IP address</Label>
               <p className="mt-0.5 text-[11px] leading-snug text-slate-500">
-                Base address of the ESP32 web server, e.g.{" "}
-                <code className="font-mono">http://192.168.1.50</code>. The firmware must be running and reachable on
-                the same network as the backend.
+                Just the IP, e.g. <code className="font-mono">192.168.1.50</code> — no{" "}
+                <code className="font-mono">http://</code> and no port. The firmware serves on port 80.
               </p>
               <div className="mt-1.5 flex items-center gap-2">
                 <Input
                   id="esp32_url"
-                  type="url"
+                  type="text"
                   value={String(value("esp32_url") ?? "")}
-                  placeholder="http://192.168.1.50"
+                  placeholder="192.168.1.50"
                   disabled={!isAdmin}
                   className="h-9 font-mono text-xs"
                   spellCheck={false}
+                  inputMode="url"
                   onChange={(e) => set("esp32_url", e.target.value)}
                 />
                 <Button
@@ -525,30 +525,14 @@ export default function SettingsPage() {
             </div>
           </div>
 
-          {/* Device key */}
-          <div className="grid gap-1.5">
-            <Label htmlFor="esp32_device_key" className="text-xs">Device API key (X-Device-Key)</Label>
-            <p className="text-[11px] leading-snug text-slate-500">
-              Shared secret between the backend and the ESP32 firmware. Must match{" "}
-              <code className="font-mono">DEVICE_API_KEY</code> in the Arduino sketch.
-            </p>
-            <Input
-              id="esp32_device_key"
-              type="text"
-              value={String(value("esp32_device_key") ?? "")}
-              placeholder="soilingguard-esp32-key"
-              disabled={!isAdmin}
-              className="h-9 font-mono text-xs"
-              spellCheck={false}
-              onChange={(e) => set("esp32_device_key", e.target.value)}
-            />
-          </div>
+          {/* Device key removed: the firmware APIs need only the IP. */}
 
           <p className="text-[11px] leading-relaxed text-slate-400">
-            Supported firmware APIs: <code className="font-mono">GET /data</code> (standalone sketch) or{" "}
-            <code className="font-mono">GET /api/state</code>. Cleaning commands go to{" "}
-            <code className="font-mono">GET /motor?action=FORWARD|STOP</code>. The ESP32 must be reachable from the
-            backend — a LAN IP only works while the backend runs on the same network.
+            Enter just the IP — no <code className="font-mono">http://</code> and no port needed (the device serves on
+            port 80). The backend polls <code className="font-mono">GET /data</code> (standalone sketch) or{" "}
+            <code className="font-mono">GET /api/state</code>, and sends cleaning commands to{" "}
+            <code className="font-mono">GET /motor?action=FORWARD|STOP</code>. A LAN IP only works while the backend
+            runs on the same network.
           </p>
         </Section>
         )}
