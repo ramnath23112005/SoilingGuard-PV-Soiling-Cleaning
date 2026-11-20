@@ -41,6 +41,7 @@
 #include <OneWire.h>
 #include <DallasTemperature.h>
 #include <Preferences.h>
+#include <WebServer.h>
 #include <time.h>
 #include <math.h>
 
@@ -621,6 +622,102 @@ static void sendHeartbeat() {
 }
 
 // ===========================================================================
+// 9b. Local HTTP server (direct-IP link)
+// ===========================================================================
+// The backend polls this device over the LAN when demo mode is off:
+//   GET  /api/health         -> liveness + firmware info
+//   GET  /api/state          -> latest measured values (JSON)
+//   POST /api/device/status  -> heartbeat acknowledgement (Settings "Test")
+// Values are the cached sensor readings; nothing is invented. Sensors that are
+// missing simply omit their keys so the dashboard shows "unavailable".
+
+static WebServer stateServer(80);
+
+static void sendCorsHeaders() {
+  stateServer.sendHeader("Access-Control-Allow-Origin", "*");
+  stateServer.sendHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
+  stateServer.sendHeader("Access-Control-Allow-Headers", "Content-Type, X-Device-Key");
+}
+
+static void handleHttpHealth() {
+  JsonDocument doc;
+  doc["ok"] = true;
+  doc["device_id"] = DEVICE_ID;
+  doc["firmware_version"] = FW_VERSION;
+  doc["uptime_s"] = (uint32_t)(millis() / 1000UL);
+  doc["wifi_rssi"] = WiFi.RSSI();
+  String body;
+  serializeJson(doc, body);
+  sendCorsHeaders();
+  stateServer.send(200, "application/json", body);
+}
+
+static void handleHttpState() {
+  Sample s = currentSample();
+  JsonDocument doc;
+  doc["device_id"] = DEVICE_ID;
+  doc["firmware_version"] = FW_VERSION;
+  doc["uptime_s"] = (uint32_t)(millis() / 1000UL);
+  if (s.epoch > 0) doc["timestamp"] = s.epoch;
+  if (s.electricalOk) {
+    doc["voltage"] = roundf(s.voltage * 1000.0f) / 1000.0f;
+    doc["current"] = roundf(s.current * 1000.0f) / 1000.0f;
+    doc["power"] = roundf(s.power * 100.0f) / 100.0f;
+  }
+  if (s.lightOk) doc["light_level"] = roundf(s.lightPct * 10.0f) / 10.0f;
+  if (s.tempOk) doc["temperature"] = roundf(s.tempC * 10.0f) / 10.0f;
+  doc["motor_status"] =
+      motorState == MOTOR_RUNNING ? "running" : (motorState == MOTOR_SETTLING ? "settling" : "stopped");
+  doc["wifi_status"] = wifiOnline() ? "connected" : "disconnected";
+  if (wifiOnline()) doc["wifi_rssi"] = WiFi.RSSI();
+  doc["sensors"]["ina219"] = s.electricalOk;
+  doc["sensors"]["ldr"] = s.lightOk;
+  doc["sensors"]["ds18b20"] = s.tempOk;
+  doc["quality"] = (s.electricalOk && s.lightOk && s.tempOk) ? "good" : "missing";
+
+  String body;
+  serializeJson(doc, body);
+  sendCorsHeaders();
+  stateServer.send(200, "application/json", body);
+}
+
+static void handleHttpStatus() {
+  sendCorsHeaders();
+
+  const String key = stateServer.header("X-Device-Key");
+  if (key.length() > 0 && key != DEVICE_API_KEY) {
+    stateServer.send(401, "application/json", "{\"ok\":false,\"detail\":\"invalid device key\"}");
+    return;
+  }
+
+  JsonDocument out;
+  out["ok"] = true;
+  out["device_id"] = DEVICE_ID;
+  out["firmware_version"] = FW_VERSION;
+  out["uptime_s"] = (uint32_t)(millis() / 1000UL);
+  String body;
+  serializeJson(out, body);
+  stateServer.send(200, "application/json", body);
+}
+
+static void setupHttpServer() {
+  stateServer.on("/api/health", HTTP_GET, handleHttpHealth);
+  stateServer.on("/api/state", HTTP_GET, handleHttpState);
+  stateServer.on("/api/device/status", HTTP_POST, handleHttpStatus);
+  stateServer.onNotFound([]() {
+    sendCorsHeaders();
+    stateServer.send(404, "application/json", "{\"ok\":false,\"detail\":\"not found\"}");
+  });
+  stateServer.begin();
+  Serial.printf("[web] local state server ready (http://%s/api/state)\n",
+                WiFi.localIP().toString().c_str());
+}
+
+static void serviceHttpServer() {
+  if (wifiOnline()) stateServer.handleClient();
+}
+
+// ===========================================================================
 // 10. AI classification
 // ===========================================================================
 
@@ -1167,6 +1264,7 @@ void setup() {
   }
 
   setupWifi();
+  setupHttpServer();
 
   lastLightReadMs = millis();
   readLight();
@@ -1181,6 +1279,7 @@ void setup() {
 void loop() {
   serviceSerial();
   serviceWifi();
+  serviceHttpServer();
 
   if (elapsed(lastLightReadMs, LIGHT_SAMPLE_MS)) readLight();
   serviceTemperature();

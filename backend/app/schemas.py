@@ -82,6 +82,9 @@ class SystemStatus(BaseModel):
     model: ModelInfo
     primary_device_id: str | None
     telemetry_source: DataSource
+    esp32_url: str | None = None
+    esp32_link_state: str = "disabled"
+    esp32_link_detail: str | None = None
 
 
 # ----------------------------- telemetry ------------------------------

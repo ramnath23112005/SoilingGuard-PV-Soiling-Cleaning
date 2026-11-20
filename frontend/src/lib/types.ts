@@ -94,6 +94,9 @@ export interface SystemStatus {
   model: ModelInfo;
   primary_device_id: string | null;
   telemetry_source: DataSource;
+  esp32_url?: string | null;
+  esp32_link_state?: "disabled" | "not_configured" | "connected" | "unreachable";
+  esp32_link_detail?: string | null;
 }
 
 export interface TelemetryPoint {

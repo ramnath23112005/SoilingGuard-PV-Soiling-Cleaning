@@ -436,28 +436,31 @@ export default function SettingsPage() {
             value={selectedDevice?.simulated ? "Simulated INA219" : "INA219 (I²C)"}
           />
           <ReadOnlyRow label="Cleaning actuator" value="12 V DC motor wiper" />
+          {Boolean(value("demo_mode")) && (
+            <p className="text-[11px] leading-relaxed text-slate-400">
+              Demo mode is on. Turn it off to reveal the ESP32 IP option and read live measurements from the physical
+              prototype.
+            </p>
+          )}
         </Section>
 
-        {/* ---- ESP32 Hardware Connection ---- */}
+        {/* ---- ESP32 Hardware Connection (only when demo mode is off) ---- */}
+        {!Boolean(value("demo_mode")) && (
         <Section
           icon={<Wifi className="h-4 w-4" />}
           title="ESP32 hardware connection"
-          description="Direct link to your ESP32 controller — required when demo mode is off"
+          description="Live link over your local network — active because demo mode is off"
         >
-          {/* Real-time data notice when demo_mode is off */}
-          {!Boolean(value("demo_mode")) && (
-            <div className="flex items-start gap-2.5 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2.5">
-              <Zap className="mt-0.5 h-4 w-4 shrink-0 text-emerald-600" />
-              <div>
-                <p className="text-xs font-medium text-emerald-800">Live ESP32 data active</p>
-                <p className="mt-0.5 text-[11px] leading-relaxed text-emerald-700">
-                  Demo mode is <strong>off</strong>. The dashboard reads real measurements posted by the ESP32
-                  firmware to <code className="rounded bg-emerald-100 px-1 font-mono">/api/telemetry</code>. Configure
-                  the ESP32 IP below so the backend can also reach the device for status checks and cleaning commands.
-                </p>
-              </div>
+          <div className="flex items-start gap-2.5 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2.5">
+            <Zap className="mt-0.5 h-4 w-4 shrink-0 text-emerald-600" />
+            <div>
+              <p className="text-xs font-medium text-emerald-800">Demo mode is off — live hardware</p>
+              <p className="mt-0.5 text-[11px] leading-relaxed text-emerald-700">
+                The backend polls the ESP32 at the IP below every few seconds and stores the readings as measured
+                telemetry. Cleaning commands are sent to the device&apos;s motor endpoint.
+              </p>
             </div>
-          )}
+          </div>
 
           {/* ESP32 URL input */}
           <div className="grid gap-1.5 sm:grid-cols-[1fr_auto] sm:items-end">
@@ -542,11 +545,13 @@ export default function SettingsPage() {
           </div>
 
           <p className="text-[11px] leading-relaxed text-slate-400">
-            The ESP32 firmware <strong>pushes</strong> telemetry to the backend at{" "}
-            <code className="font-mono">/api/telemetry</code> — no polling is needed. This URL is used by the backend
-            to reach the device for status checks and cleaning commands.
+            Supported firmware APIs: <code className="font-mono">GET /data</code> (standalone sketch) or{" "}
+            <code className="font-mono">GET /api/state</code>. Cleaning commands go to{" "}
+            <code className="font-mono">GET /motor?action=FORWARD|STOP</code>. The ESP32 must be reachable from the
+            backend — a LAN IP only works while the backend runs on the same network.
           </p>
         </Section>
+        )}
       </div>
 
       {dirty && !isAdmin && (

@@ -389,12 +389,26 @@ function ConnectivityCard() {
   const modelLoaded = Boolean(status?.model.available);
 
   type RowState = "ok" | "idle" | "off" | "demo";
+  const linkState = status?.esp32_link_state ?? "disabled";
+  const esp32Host = (status?.esp32_url ?? "").replace(/^https?:\/\//, "").replace(/\/$/, "");
+  const esp32Row: { state: RowState; detail: string } = simulated
+    ? { state: "demo", detail: "Simulated device" }
+    : linkState === "connected"
+      ? { state: "ok", detail: esp32Host ? `Live · ${esp32Host}` : "Live link" }
+      : linkState === "unreachable"
+        ? { state: "off", detail: "IP unreachable" }
+        : linkState === "not_configured"
+          ? { state: "idle", detail: "Set IP in Settings" }
+          : online
+            ? { state: "ok", detail: "Heartbeat received" }
+            : { state: "off", detail: "No heartbeat" };
+
   const rows: { label: string; icon: React.ReactNode; state: RowState; detail: string }[] = [
     {
       label: "ESP32 controller",
       icon: <Cpu className="h-3.5 w-3.5" />,
-      state: simulated ? "demo" : online ? "ok" : "off",
-      detail: simulated ? "Simulated device" : online ? "Heartbeat received" : "No heartbeat",
+      state: esp32Row.state,
+      detail: esp32Row.detail,
     },
     {
       label: "Phone camera",

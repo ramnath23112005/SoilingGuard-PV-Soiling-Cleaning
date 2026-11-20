@@ -18,6 +18,7 @@ from ..models import (
 )
 from ..schemas import AlertOut
 from .events import alert_counts
+from .esp32_link import esp32_link
 from .inference import CLASS_LABELS, classifier
 from .settings_service import load_settings
 from .telemetry_service import energy_between, energy_today_wh, latest_reading, previous_period_power
@@ -52,7 +53,18 @@ def device_effective_status(device: Device, latest_ts: datetime | None) -> str:
     return "offline"
 
 
-def primary_device(db: Session) -> Device | None:
+def primary_device(db: Session, demo_mode: bool | None = None) -> Device | None:
+    if demo_mode is None:
+        demo_mode = bool(load_settings(db).get("demo_mode", True))
+    if not demo_mode:
+        real = db.execute(
+            select(Device)
+            .where(Device.active.is_(True), Device.simulated.is_(False))
+            .order_by(Device.created_at.asc())
+            .limit(1)
+        ).scalar_one_or_none()
+        if real is not None:
+            return real
     return db.execute(
         select(Device).where(Device.active.is_(True)).order_by(Device.created_at.asc()).limit(1)
     ).scalar_one_or_none()
@@ -79,7 +91,7 @@ def build_system_status(db: Session) -> dict:
     cfg = load_settings(db)
     demo_mode = bool(cfg.get("demo_mode", True))
     info = classifier.info
-    device = primary_device(db)
+    device = primary_device(db, demo_mode)
     device_id = device.id if device else None
 
     latest = latest_reading(db, device_id) if device_id else None
@@ -140,6 +152,13 @@ def build_system_status(db: Session) -> dict:
         mode = MODE_OFFLINE
 
     source = latest.source if latest else "simulated"
+    link = esp32_link.snapshot()
+    if demo_mode:
+        link_state = "disabled"
+        link_detail = "Demo mode is on - direct ESP32 link is idle."
+    else:
+        link_state = str(link.get("state") or "disabled")
+        link_detail = link.get("last_error")
 
     return {
         "operating_mode": mode,
@@ -157,6 +176,9 @@ def build_system_status(db: Session) -> dict:
         "model": info,
         "primary_device_id": device_id,
         "telemetry_source": source,
+        "esp32_url": (str(cfg.get("esp32_url") or "").strip().rstrip("/") or None),
+        "esp32_link_state": link_state,
+        "esp32_link_detail": link_detail,
     }
 
 

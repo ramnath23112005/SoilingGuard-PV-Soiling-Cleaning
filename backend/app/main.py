@@ -35,6 +35,7 @@ from .routers import settings as settings_router
 from .seed import seed_all
 from .services.cleaning_service import cleaning_service
 from .services.demo_simulator import simulator
+from .services.esp32_link import esp32_link
 from .services.inference import classifier
 from .services.mqtt_adapter import mqtt_adapter
 
@@ -111,6 +112,10 @@ async def lifespan(_app: FastAPI):
     simulator.start()
     logger.info("Demo simulator running=%s (demo_mode=%s)", simulator.running, settings.demo_mode)
 
+    esp32_link._session_factory = SessionLocal
+    esp32_link.start()
+    logger.info("ESP32 direct-IP link started (polls the configured URL when demo mode is off)")
+
     model_ok = classifier.load()
     logger.info("AI model available=%s (%s)", model_ok, classifier.load_error or "ready")
 
@@ -124,6 +129,7 @@ async def lifespan(_app: FastAPI):
 
     _auto_stop.set()
     simulator.stop()
+    esp32_link.stop()
     mqtt_adapter.stop()
     logger.info("Shutdown complete")
 

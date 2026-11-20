@@ -196,10 +196,17 @@ class DemoSimulator:
 
     def tick_once(self, device_id: str | None = None) -> None:
         """Insert exactly one simulated reading (used by tests and the loop)."""
+        from .settings_service import load_settings
+
         with self._lock:
             db: Session = self._session_factory()
             try:
                 from ..models import Device
+
+                # The runtime demo_mode toggle (Settings page) must silence the
+                # simulator, not just the startup env flag.
+                if not load_settings(db).get("demo_mode", True):
+                    return
 
                 devices = db.execute(
                     select(Device).where(Device.simulated.is_(True), Device.active.is_(True))
