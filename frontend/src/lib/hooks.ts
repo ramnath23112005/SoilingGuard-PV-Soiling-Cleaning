@@ -86,9 +86,10 @@ export function useDebounced<T>(value: T, delay = 300): T {
   return v;
 }
 
-export type RangeKey = "15m" | "1h" | "24h" | "7d" | "custom";
+export type RangeKey = "live" | "15m" | "1h" | "24h" | "7d" | "custom";
 
 export const RANGE_OPTIONS: { value: RangeKey; label: string }[] = [
+  { value: "live", label: "Live (last 2 min)" },
   { value: "15m", label: "Last 15 minutes" },
   { value: "1h", label: "Last hour" },
   { value: "24h", label: "Last 24 hours" },
@@ -97,8 +98,9 @@ export const RANGE_OPTIONS: { value: RangeKey; label: string }[] = [
 ];
 
 export const RANGE_POLL_MS: Record<RangeKey, number | null> = {
-  "15m": 5_000,
-  "1h": 15_000,
+  live: 1_000,
+  "15m": 3_000,
+  "1h": 10_000,
   "24h": 60_000,
   "7d": null,
   custom: null,

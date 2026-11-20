@@ -241,7 +241,7 @@ function ChartCard({
 
 export default function LiveMonitoringPage() {
   const { selectedDeviceId, status, selectedDevice } = useSystem();
-  const [range, setRange] = React.useState<RangeKey>("1h");
+  const [range, setRange] = React.useState<RangeKey>("live");
   const [from, setFrom] = React.useState("");
   const [to, setTo] = React.useState("");
   const [exporting, setExporting] = React.useState(false);
@@ -252,7 +252,7 @@ export default function LiveMonitoringPage() {
       range,
       from: range === "custom" ? toIsoLocal(from) : undefined,
       to: range === "custom" ? toIsoLocal(to) : undefined,
-      limit: range === "15m" || range === "1h" ? 2000 : 4000,
+      limit: range === "live" ? 1000 : range === "15m" || range === "1h" ? 2000 : 4000,
     }),
     [range, from, to],
   );

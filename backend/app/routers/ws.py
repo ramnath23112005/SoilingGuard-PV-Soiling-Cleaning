@@ -15,7 +15,7 @@ from sqlalchemy import select
 
 from ..config import get_settings
 from ..database import SessionLocal
-from ..models import Device, TelemetryReading, User
+from ..models import TelemetryReading, User
 from ..security import decode_token
 
 logger = logging.getLogger("soilingguard.ws")
@@ -74,11 +74,11 @@ def _latest(device_id: str, last_ts: str | None) -> dict | None:
 
 
 def _primary_device() -> str | None:
+    from ..services.system_service import primary_device
+
     db = SessionLocal()
     try:
-        dev = db.execute(
-            select(Device).where(Device.active.is_(True)).order_by(Device.created_at.asc()).limit(1)
-        ).scalar_one_or_none()
+        dev = primary_device(db)
         return dev.id if dev else None
     finally:
         db.close()
@@ -113,7 +113,7 @@ async def telemetry_socket(ws: WebSocket, device_id: str | None = Query(default=
                 if msg:
                     last_ts = msg["ts"]
                     await ws.send_json({"type": "telemetry", "device_id": target, "point": msg["point"]})
-            await asyncio.sleep(2.0)
+            await asyncio.sleep(1.0)
     except WebSocketDisconnect:
         return
     except Exception:  # pragma: no cover

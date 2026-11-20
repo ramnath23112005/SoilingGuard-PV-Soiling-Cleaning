@@ -34,9 +34,9 @@ from .settings_service import load_settings
 logger = logging.getLogger("soilingguard.esp32_link")
 settings = get_settings()
 
-POLL_INTERVAL_S = 5.0
-REQUEST_TIMEOUT_S = 4.0
-DEDUPE_WINDOW_S = 8.0
+POLL_INTERVAL_S = 1.0
+REQUEST_TIMEOUT_S = 1.2
+DEDUPE_WINDOW_S = 0.4
 HARD_MAX_RUNTIME_S = 600.0
 MOTOR_FORWARD = "FORWARD"
 MOTOR_STOP = "STOP"

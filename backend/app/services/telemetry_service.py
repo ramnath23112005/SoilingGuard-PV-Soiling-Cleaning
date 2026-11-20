@@ -12,6 +12,7 @@ from sqlalchemy.orm import Session
 from ..models import TelemetryReading
 
 RANGE_DELTAS = {
+    "live": timedelta(minutes=2),
     "15m": timedelta(minutes=15),
     "1h": timedelta(hours=1),
     "24h": timedelta(hours=24),
