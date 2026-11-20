@@ -216,7 +216,7 @@ export default function SettingsPage() {
     setEsp32PingState("pinging");
     setEsp32PingMsg(null);
     try {
-      const res = await api.pingEsp32();
+      const res = await api.pingEsp32(String(value("esp32_url") ?? "").trim());
       setEsp32PingState(res.ok ? "ok" : "error");
       setEsp32PingMsg(res.detail);
     } catch (e) {

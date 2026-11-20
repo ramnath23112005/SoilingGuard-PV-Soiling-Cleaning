@@ -5,6 +5,7 @@ from __future__ import annotations
 from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends, HTTPException, Query
+from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
 from ..config import get_settings
@@ -52,16 +53,23 @@ def overview(_: CurrentUser, device_id: str | None = Query(default=None), db: Se
         raise HTTPException(status_code=404, detail=str(exc)) from None
 
 
+class PingEsp32In(BaseModel):
+    """Optional unsaved IP from the Settings form, so Test works before Save."""
+
+    url: str | None = None
+
+
 @router.post("/system/ping-esp32")
 def ping_esp32(
     _: CurrentUser,
     db: Session = Depends(get_db),
+    payload: PingEsp32In | None = None,
 ):
-    """Test reachability of the configured ESP32 URL.
+    """Test reachability of the ESP32 IP.
 
-    Calls the firmware's local web server (``GET <esp32_url>/api/health``, then
-    ``GET /api/state`` as a fallback) with the configured device key. Returns
-    latency_ms on success or a descriptive error on failure.
+    Calls the firmware's local web server (``GET /health``, ``/data``,
+    ``/api/health``, ``/api/state`` in turn) with the configured device key.
+    Returns latency_ms on success or a descriptive error on failure.
     """
     import time
 
@@ -71,11 +79,11 @@ def ping_esp32(
         raise HTTPException(status_code=500, detail="httpx is not installed; cannot reach the ESP32.")
 
     cfg = load_settings(db)
-    base = normalize_base(cfg.get("esp32_url"))
+    base = normalize_base(payload.url if payload and payload.url else cfg.get("esp32_url"))
     key = cfg.get("esp32_device_key") or settings.iot_device_key
 
     if not base:
-        raise HTTPException(status_code=422, detail="esp32_url is not configured. Set the ESP32 IP in Settings first.")
+        raise HTTPException(status_code=422, detail="Enter the ESP32 IP address first.")
 
     headers = {"X-Device-Key": key}
     t0 = time.monotonic()

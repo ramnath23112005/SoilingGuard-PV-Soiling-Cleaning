@@ -290,8 +290,11 @@ export const api = {
       method: "PUT",
       body: JSON.stringify(body),
     }),
-  pingEsp32: () =>
-    request<{ ok: boolean; detail: string; latency_ms?: number }>("/api/system/ping-esp32", { method: "POST" }),
+  pingEsp32: (url?: string) =>
+    request<{ ok: boolean; detail: string; latency_ms?: number }>("/api/system/ping-esp32", {
+      method: "POST",
+      body: url ? JSON.stringify({ url }) : undefined,
+    }),
 
   /* ----------------------------- export --------------------------- */
   async csvDownload(path: string, filename: string, params?: Record<string, QueryValue>) {
