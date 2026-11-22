@@ -244,6 +244,7 @@ export interface Prediction {
   confirmed_class: string | null;
   gradcam_url: string | null;
   quality_warnings: string[];
+  metrics?: Record<string, number>;
 }
 
 export interface PredictResponse {

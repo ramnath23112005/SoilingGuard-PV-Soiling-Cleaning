@@ -31,7 +31,7 @@ def health(db: Session = Depends(get_db)):
         version=settings.app_version,
         demo_mode=bool(cfg.get("demo_mode", True)),
         database=db_name,
-        model_available=classifier.available,
+        model_available=bool(classifier.info.get("available")),
         mqtt_connected=mqtt_adapter.connected,
         time=datetime.now(timezone.utc),
     )

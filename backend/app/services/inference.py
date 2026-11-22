@@ -79,6 +79,7 @@ class InferenceResult:
     message: str
     gradcam: np.ndarray | None = None
     warnings: list[str] = field(default_factory=list)
+    metrics: dict[str, float] = field(default_factory=dict)
 
 
 def _load_metadata() -> dict:
@@ -158,6 +159,11 @@ class PanelSoilingClassifier:
     def info(self) -> dict:
         classes = [c for c in self._metadata.get("classes", DEFAULT_CLASSES) if c in CLASS_LABELS]
         trained = self.available and bool(self._metadata.get("trained_on"))
+        if not self.available:
+            # No CNN weights: the classical vision analyser is the real engine.
+            from .dust_vision import VISION_INFO
+
+            return dict(VISION_INFO)
         return {
             "available": self.available,
             "name": self._metadata.get("name", "MobileNetV3-Small (soiling)"),

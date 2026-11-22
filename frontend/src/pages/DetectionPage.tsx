@@ -55,6 +55,7 @@ import type { PredictResponse, Prediction } from "@/lib/types";
 function ResultCard({ data, onConfirm }: { data: PredictResponse; onConfirm: (cls: string) => void }) {
   const [showCam, setShowCam] = React.useState(false);
   const p = data.prediction;
+  const isVision = p.model_name.includes("VisionAnalyzer");
   const probData = Object.entries(p.probabilities).map(([k, v]) => ({
     label: p.predicted_label && k === p.predicted_class ? `${k} ★` : k,
     value: Math.round(v * 100),
@@ -125,6 +126,29 @@ function ResultCard({ data, onConfirm }: { data: PredictResponse; onConfirm: (cl
           </div>
         </dl>
 
+        {p.metrics && typeof p.metrics.dust_coverage_pct === "number" && (
+          <div className="flex flex-wrap gap-1.5">
+            <span className="rounded-full bg-slate-100 px-2.5 py-1 text-[11px] font-medium text-slate-700">
+              Dirt coverage <strong>{formatNumber(p.metrics.dust_coverage_pct, 1)}%</strong>
+            </span>
+            {typeof p.metrics.clump_coverage_pct === "number" && p.metrics.clump_coverage_pct > 0 && (
+              <span className="rounded-full bg-slate-100 px-2.5 py-1 text-[11px] font-medium text-slate-700">
+                Clumps <strong>{formatNumber(p.metrics.clump_coverage_pct, 1)}%</strong>
+              </span>
+            )}
+            {typeof p.metrics.panel_area_pct === "number" && (
+              <span className="rounded-full bg-slate-100 px-2.5 py-1 text-[11px] font-medium text-slate-700">
+                Panel in frame <strong>{formatNumber(p.metrics.panel_area_pct, 0)}%</strong>
+              </span>
+            )}
+            {typeof p.metrics.glare_area_pct === "number" && (
+              <span className="rounded-full bg-slate-100 px-2.5 py-1 text-[11px] font-medium text-slate-700">
+                Glare excluded <strong>{formatNumber(p.metrics.glare_area_pct, 1)}%</strong>
+              </span>
+            )}
+          </div>
+        )}
+
         {p.quality_warnings.length > 0 && (
           <ul className="space-y-1.5 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2.5 text-[11px] text-amber-900">
             {p.quality_warnings.map((w) => (
@@ -145,14 +169,20 @@ function ResultCard({ data, onConfirm }: { data: PredictResponse; onConfirm: (cl
         {p.gradcam_url && (
           <div>
             <Button variant="outline" size="sm" onClick={() => setShowCam((s) => !s)}>
-              <Eye className="h-3.5 w-3.5" /> {showCam ? "Hide" : "Show"} attention map (Grad-CAM)
+              <Eye className="h-3.5 w-3.5" /> {showCam ? "Hide" : "Show"}{" "}
+              {isVision ? "soiling map" : "attention map (Grad-CAM)"}
             </Button>
             {showCam && (
               <div className="mt-3 overflow-hidden rounded-lg border border-slate-200">
-                <img src={mediaUrl(p.gradcam_url) ?? ""} alt="Grad-CAM attention map" className="w-full" />
+                <img
+                  src={mediaUrl(p.gradcam_url) ?? ""}
+                  alt={isVision ? "Soiling map" : "Grad-CAM attention map"}
+                  className="w-full"
+                />
                 <p className="border-t border-slate-200 bg-slate-50 px-3 py-2 text-[11px] leading-relaxed text-slate-600">
-                  The heatmap shows where the model looked. It is <strong>not proof</strong> of the physical
-                  cause of soiling and does not measure dust thickness.
+                  {isVision
+                    ? "Brighter areas are cells with more measured dirt coverage. The map is derived from panel-segmentation and colour statistics, not from a neural network."
+                    : "The heatmap shows where the model looked. It is not proof of the physical cause of soiling and does not measure dust thickness."}
                 </p>
               </div>
             )}
@@ -782,12 +812,13 @@ export default function DetectionPage() {
     <div className="space-y-5">
       <PageHeader
         title="AI Dust Detection"
-        description="Connect your phone camera through IP Webcam, capture a frame and review the CNN dust classification."
+        description="Connect your phone camera through IP Webcam, capture a frame and analyse the panel surface for dust and soiling."
         tooltip={
           <>
             Frames are captured from the connected IP camera, validated server-side (type, size, magic bytes) and
-            re-encoded before storage. A prediction is only issued by the configured model — or, without one, by a
-            clearly marked demo rule.
+            re-encoded before storage. A prediction is produced by the built-in vision analyser (panel
+            segmentation, glare masking, dirt-coverage measurement) or by a trained CNN when weights are
+            configured — never by generating numbers.
           </>
         }
       />
@@ -798,9 +829,7 @@ export default function DetectionPage() {
         <WarningBanner message="MODEL NOT CONFIGURED — no trained weights are loaded, so real inference is disabled. Captured frames are classified with the clearly labelled DEMO rule (deterministic image statistics, not a neural network) so the workflow stays usable." />
       ) : (
         <InfoBanner
-          message={`Model ready: ${model.data?.name} v${model.data?.version} · classes: ${(model.data?.classes ?? []).join(", ")}${
-            model.data?.trained_for_four_class ? "" : " (four-class prediction not confirmed by training metadata)"
-          }`}
+          message={`Analyser ready: ${model.data?.name} v${model.data?.version} (${model.data?.framework}) · classes: ${(model.data?.classes ?? []).join(", ")}`}
         />
       )}
 

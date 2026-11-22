@@ -1,4 +1,4 @@
-﻿import * as React from "react";
+import * as React from "react";
 import {
   Activity,
   Download,
@@ -8,6 +8,7 @@ import {
 } from "lucide-react";
 import { api, getToken, normalizeTimestamps } from "@/lib/api";
 import { RANGE_OPTIONS, RANGE_POLL_MS, useAsync, type RangeKey } from "@/lib/hooks";
+import { esp32Base, useEsp32Direct, type DirectState } from "@/lib/esp32";
 import { useSystem } from "@/context/SystemContext";
 import { cn, formatDateTime, formatNumber, formatTime } from "@/lib/utils";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -211,10 +212,12 @@ function LiveSensorCard({
   point,
   source,
   wsState,
+  directState,
 }: {
   point: TelemetryPoint | null;
   source: "measured" | "simulated" | "estimated" | "demo";
   wsState: string;
+  directState: DirectState;
 }) {
   const light = point?.light_level ?? point?.irradiance_wm2 ?? null;
   const lightUnit = point?.light_level != null ? "%" : "W/m²";
@@ -248,7 +251,17 @@ function LiveSensorCard({
           : undefined,
     },
   ];
-  const live = wsState === "live";
+  const directLive = directState === "live";
+  const live = directLive || wsState === "live";
+  const channel = directLive
+    ? "Direct · 0.3 s"
+    : directState === "connecting"
+      ? "Direct…"
+      : wsState === "live"
+        ? "Live stream"
+        : wsState === "connecting"
+          ? "Connecting"
+          : "Polling";
 
   return (
     <Card>
@@ -257,7 +270,9 @@ function LiveSensorCard({
           <CardTitle className="flex items-center gap-2">
             <Activity className="h-4 w-4 text-solar-600" /> Live sensor readings
           </CardTitle>
-          <CardDescription>Direct from the ESP32 · refreshed every second</CardDescription>
+          <CardDescription>
+            Polled straight from the ESP32 · falls back to the server stream when blocked
+          </CardDescription>
         </div>
         <div className="flex flex-wrap items-center justify-end gap-2">
           <SourceBadge source={source} />
@@ -273,7 +288,7 @@ function LiveSensorCard({
                 live ? "animate-pulse bg-emerald-500" : "bg-slate-400",
               )}
             />
-            {live ? "Live" : wsState === "connecting" ? "Connecting" : "Polling"}
+            {channel}
           </span>
           <span className="text-[10px] text-slate-400">
             {point ? formatTime(point.ts) : "no data"}
@@ -344,6 +359,9 @@ export default function LiveMonitoringPage() {
   const [to, setTo] = React.useState("");
   const [exporting, setExporting] = React.useState(false);
   const { state: wsState, livePoint } = useLiveSocket(selectedDeviceId);
+  const directBase = React.useMemo(() => esp32Base(status?.esp32_url), [status?.esp32_url]);
+  const direct = useEsp32Direct(directBase, !status?.demo_mode, 300);
+  const directLive = direct.state === "live";
 
   const params = React.useMemo(
     () => ({
@@ -378,9 +396,14 @@ export default function LiveMonitoringPage() {
     return [...basePoints, livePoint];
   }, [basePoints, livePoint]);
 
+  // In the live window prefer the browser's direct ESP32 samples (300 ms) over the
+  // server stream; other ranges use the persisted history.
+  const chartPoints =
+    range === "live" && directLive && direct.history.length > 1 ? direct.history : merged;
+
   const powerData = React.useMemo(() => {
     const events = (cleaning.data?.items ?? []).filter((j) => j.completed_at || j.started_at);
-    const marked = merged.map((p) => ({ ...p, cleaning_mark: null as number | null }));
+    const marked = chartPoints.map((p) => ({ ...p, cleaning_mark: null as number | null }));
     for (const ev of events) {
       const at = ev.started_at ?? ev.completed_at;
       if (!at) continue;
@@ -396,19 +419,20 @@ export default function LiveMonitoringPage() {
       if (bestIdx >= 0 && marked[bestIdx].power_w != null) marked[bestIdx].cleaning_mark = marked[bestIdx].power_w;
     }
     return marked;
-  }, [merged, cleaning.data]);
+  }, [chartPoints, cleaning.data]);
 
-  const missing = merged.filter((p) => p.power_w === null).length;
+  const missing = chartPoints.filter((p) => p.power_w === null).length;
   const source = telemetry.data?.source ?? "simulated";
+  const liveSource = directLive ? "measured" : source;
   // Demo site runs on a fixed solar time (UTC+5:30, sunrise ~05:36, sunset ~18:36).
   const atSiteNight = React.useMemo(() => {
-    if (!merged.length) return false;
-    const last = new Date(merged[merged.length - 1].ts).getTime();
+    if (!chartPoints.length) return false;
+    const last = new Date(chartPoints[chartPoints.length - 1].ts).getTime();
     if (Number.isNaN(last)) return false;
     const d = new Date(last + 5.5 * 3_600_000);
     const hour = d.getUTCHours() + d.getUTCMinutes() / 60;
     return hour < 5.6 || hour > 18.6;
-  }, [merged]);
+  }, [chartPoints]);
 
   async function onExport() {
     if (!selectedDeviceId) return;
@@ -507,7 +531,7 @@ export default function LiveMonitoringPage() {
             )}
 
             <div className="flex items-center gap-1.5">
-              <SourceBadge source={source} />
+              <SourceBadge source={liveSource} />
               {telemetry.data?.downsampled && (
                 <span className="inline-flex items-center rounded-full bg-amber-50 px-2 py-0.5 text-[10px] font-bold uppercase tracking-[0.08em] text-amber-700">
                   Down-sampled
@@ -517,20 +541,30 @@ export default function LiveMonitoringPage() {
                 title="Telemetry channel"
                 className={cn(
                   "inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-[0.08em]",
-                  wsState === "live" ? "bg-emerald-50 text-emerald-700" : "bg-slate-100 text-slate-600",
+                  directLive || wsState === "live"
+                    ? "bg-emerald-50 text-emerald-700"
+                    : "bg-slate-100 text-slate-600",
                 )}
               >
                 <span
                   className={cn(
                     "h-1.5 w-1.5 rounded-full",
-                    wsState === "live"
+                    directLive
                       ? "animate-pulse bg-emerald-500"
-                      : wsState === "connecting"
-                        ? "animate-pulse bg-slate-400"
-                        : "bg-slate-400",
+                      : wsState === "live"
+                        ? "animate-pulse bg-emerald-500"
+                        : wsState === "connecting"
+                          ? "animate-pulse bg-slate-400"
+                          : "bg-slate-400",
                   )}
                 />
-                {wsState === "live" ? "Live stream" : wsState === "connecting" ? "Connecting" : "Polling"}
+                {directLive
+                  ? "Direct ESP32"
+                  : wsState === "live"
+                    ? "Live stream"
+                    : wsState === "connecting"
+                      ? "Connecting"
+                      : "Polling"}
               </span>
             </div>
           </div>
@@ -538,21 +572,24 @@ export default function LiveMonitoringPage() {
           <div className="flex flex-col items-end leading-tight sm:border-l sm:border-slate-200/80 sm:pl-5">
             <p className="text-xs">
               <span className="font-bold text-slate-700">
-                {merged.length} sample{merged.length === 1 ? "" : "s"}
+                {chartPoints.length} sample{chartPoints.length === 1 ? "" : "s"}
               </span>
               <span className="text-slate-400"> · {rangeLabel}</span>
             </p>
             <p className="mt-0.5 text-[10px] text-slate-400">
-              {merged.length ? `latest ${formatDateTime(merged[merged.length - 1].ts)}` : "no samples in range"}
+              {chartPoints.length
+                ? `latest ${formatDateTime(chartPoints[chartPoints.length - 1].ts)}`
+                : "no samples in range"}
             </p>
           </div>
         </CardContent>
       </Card>
 
       <LiveSensorCard
-        point={merged.length ? merged[merged.length - 1] : null}
-        source={source}
+        point={direct.point ?? (chartPoints.length ? chartPoints[chartPoints.length - 1] : null)}
+        source={liveSource}
         wsState={wsState}
+        directState={direct.state}
       />
 
       {telemetry.error && !telemetry.data && (
@@ -566,7 +603,7 @@ export default function LiveMonitoringPage() {
           ))}
         </div>
       ) : (
-        <StatTiles points={merged} source={source} />
+        <StatTiles points={chartPoints} source={liveSource} />
       )}
 
       {missing > 0 && (
@@ -579,7 +616,7 @@ export default function LiveMonitoringPage() {
         />
       )}
 
-      {merged.length === 0 && !telemetry.loading && !telemetry.error && (
+      {chartPoints.length === 0 && !telemetry.loading && !telemetry.error && (
         <EmptyState
           icon={<Activity className="h-5 w-5" />}
           title="No readings in the selected range"
@@ -587,7 +624,7 @@ export default function LiveMonitoringPage() {
         />
       )}
 
-      {merged.length > 0 && (
+      {chartPoints.length > 0 && (
         <>
           <ChartCard
             title="PV power versus time"
@@ -598,7 +635,7 @@ export default function LiveMonitoringPage() {
                 <LegendDot color="#0284c7" label="cleaning event" />
               </>
             }
-            right={<SourceBadge source={source} />}
+            right={<SourceBadge source={liveSource} />}
           >
             <MultiLineChart
               data={powerData}
@@ -625,10 +662,10 @@ export default function LiveMonitoringPage() {
             <ChartCard
               title="Voltage versus time"
               description="DC string voltage (V)"
-              right={<SourceBadge source={source} />}
+              right={<SourceBadge source={liveSource} />}
             >
               <MultiLineChart
-                data={merged}
+                data={chartPoints}
                 height={230}
                 yUnit="V"
                 series={[{ key: "voltage_v", color: SERIES.voltage, name: "Voltage", unit: "V" }]}
@@ -638,10 +675,10 @@ export default function LiveMonitoringPage() {
             <ChartCard
               title="Current versus time"
               description="DC string current (A)"
-              right={<SourceBadge source={source} />}
+              right={<SourceBadge source={liveSource} />}
             >
               <MultiLineChart
-                data={merged}
+                data={chartPoints}
                 height={230}
                 yUnit="A"
                 series={[{ key: "current_a", color: SERIES.current, name: "Current", unit: "A" }]}
@@ -657,10 +694,10 @@ export default function LiveMonitoringPage() {
                   <LegendDot color={SERIES.humidity} label="Humidity (%)" />
                 </>
               }
-              right={<SourceBadge source={source} />}
+              right={<SourceBadge source={liveSource} />}
             >
               <MultiLineChart
-                data={merged}
+                data={chartPoints}
                 height={230}
                 series={[
                   { key: "panel_temp_c", color: SERIES.temp, name: "Panel temp", unit: "°C" },
@@ -676,10 +713,10 @@ export default function LiveMonitoringPage() {
                   ? "Plane-of-array irradiance (W/m²)"
                   : "Relative LDR index from the ESP32 — not calibrated irradiance"
               }
-              right={<SourceBadge source={source} />}
+              right={<SourceBadge source={liveSource} />}
             >
               <MultiLineChart
-                data={merged}
+                data={chartPoints}
                 height={230}
                 series={
                   selectedDevice?.has_irradiance_sensor
@@ -698,25 +735,29 @@ export default function LiveMonitoringPage() {
                 <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">
                   <dt className="text-[11px] text-slate-500">Data source</dt>
                   <dd className="mt-1 flex items-center gap-2 font-semibold text-slate-800">
-                    <SourceBadge source={source} />
+                    <SourceBadge source={liveSource} />
                   </dd>
                 </div>
                 <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">
                   <dt className="text-[11px] text-slate-500">Samples / gaps</dt>
                   <dd className="mt-1 font-semibold text-slate-800">
-                    {merged.length} / {missing}
+                    {chartPoints.length} / {missing}
                   </dd>
                 </div>
                 <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">
                   <dt className="text-[11px] text-slate-500">Poll interval</dt>
                   <dd className="mt-1 font-semibold text-slate-800">
-                    {RANGE_POLL_MS[range] ? `${RANGE_POLL_MS[range]! / 1000} s` : "manual only"}
+                    {directLive && range === "live"
+                      ? "0.3 s (direct ESP32)"
+                      : RANGE_POLL_MS[range]
+                        ? `${RANGE_POLL_MS[range]! / 1000} s`
+                        : "manual only"}
                   </dd>
                 </div>
                 <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">
                   <dt className="text-[11px] text-slate-500">Last sample</dt>
                   <dd className="mt-1 font-semibold text-slate-800">
-                    {merged.length ? formatTime(merged[merged.length - 1].ts) : "—"}
+                    {chartPoints.length ? formatTime(chartPoints[chartPoints.length - 1].ts) : "—"}
                   </dd>
                 </div>
                 <div className="col-span-2 rounded-lg border border-slate-200 bg-slate-50 p-3">

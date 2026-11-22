@@ -269,6 +269,7 @@ class PredictionOut(BaseModel):
     confirmed_class: str | None
     gradcam_url: str | None
     quality_warnings: list[str]
+    metrics: dict[str, float] = {}
 
 
 class DecisionEvidence(BaseModel):

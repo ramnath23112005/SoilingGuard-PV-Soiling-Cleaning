@@ -32,6 +32,7 @@ from ..services.inference import (
     open_and_validate_image,
     sha256_of,
 )
+from ..services.dust_vision import analyse_soiling
 from ..services.settings_service import load_settings
 from ..services.system_service import resolve_device_id
 
@@ -66,10 +67,16 @@ def _save_jpeg(image: Image.Image, rel_dir: str, name: str) -> tuple[str, str, i
 
 
 def _prediction_out(p: AiPrediction, db: Session | None = None) -> dict:
+    metrics: dict = {}
     try:
-        probabilities = json.loads(p.probabilities_json or "{}")
+        raw = json.loads(p.probabilities_json or "{}")
     except json.JSONDecodeError:
-        probabilities = {}
+        raw = {}
+    if isinstance(raw, dict) and isinstance(raw.get("classes"), dict):
+        probabilities = raw["classes"]
+        metrics = raw.get("metrics") or {}
+    else:
+        probabilities = raw if isinstance(raw, dict) else {}
     image = _image_cache.get(p.image_id) if p.image_id else None
     if image is None and db is not None and p.image_id:
         image = db.get(PanelImage, p.image_id)
@@ -94,6 +101,7 @@ def _prediction_out(p: AiPrediction, db: Session | None = None) -> dict:
         confirmed_class=p.confirmed_class,
         gradcam_url=p.gradcam_path,
         quality_warnings=[w for w in (p.quality_warnings or "").split(";") if w],
+        metrics=metrics,
     ).model_dump(mode="json")
 
 
@@ -138,9 +146,14 @@ async def predict(
 
     cfg = load_settings(db)
     demo_mode = bool(cfg.get("demo_mode", True))
-    use_demo = bool(demo) or not classifier.available
-    if not use_demo and not classifier.available:  # pragma: no cover - guarded above
-        raise HTTPException(status_code=503, detail="Model is not available.")
+    use_demo = bool(demo)
+    if use_demo:
+        result = demo_heuristic(image)
+    elif classifier.available:
+        result = classifier.predict(image)
+    else:
+        # No trained CNN weights: the classical vision analyser is the real engine.
+        result = analyse_soiling(image)
 
     resolved_device = resolve_device_id(db, device_id)
 
@@ -173,7 +186,6 @@ async def predict(
         actor="api",
         reference=row.id,
     )
-    result = demo_heuristic(image) if use_demo else classifier.predict(image)
 
     gradcam_url = None
     if result.gradcam is not None and settings.gradcam_enabled:
@@ -195,7 +207,11 @@ async def predict(
         device_id=resolved_device,
         predicted_class=result.predicted_class,
         confidence=float(result.confidence),
-        probabilities_json=json.dumps(result.probabilities),
+        probabilities_json=json.dumps(
+            {"classes": result.probabilities, "metrics": result.metrics}
+            if result.metrics
+            else result.probabilities
+        ),
         model_name=result.model_name,
         model_version=result.model_version,
         inference_ms=result.inference_ms,
@@ -236,7 +252,7 @@ async def predict(
     return PredictResponse(
         prediction=_prediction_out(prediction, db),
         decision=decision,
-        model_available=classifier.available,
+        model_available=bool(classifier.available or result.available),
         message=message,
     )
 
